@@ -20,6 +20,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dst", '-d', required=True)
     parser.add_argument("--src", '-s', default="DCIM/Camera")
+    parser.add_argument("--bounce", '-b')
     return parser.parse_args()
 
 class MtpBackupJob(object):
@@ -60,16 +61,31 @@ class MtpBackupJob(object):
 
     def backup(self, files):
         total = len(files)
+        if self.args.bounce:
+            dst = self.args.bounce
+            subprocess.check_output(['mkdir', '-p', dst])
+            if os.listdir(dst):
+                raise Exception("Bounce directory is not empty")
+        else:
+            dst = self.args.dst
         for i, fn in enumerate(files):
             self.aft_do_cmd(
                 'get "%s" "%s"' % (
                     os.path.join(self.args.src, fn),
-                    os.path.join(self.args.dst, fn))
+                    os.path.join(dst, fn))
             )
             print("%d / %d (%.1f%%)" % (
                 i + 1,
                 total,
                 100 * (i + 1) / float(total)))
+        if self.args.bounce:
+            a = os.listdir(dst)
+            total = len(a)
+            for i, x in enumerate(a):
+                s = os.path.join(dst, x)
+                print("[%d/%d] %s" % (i, total, s))
+                shutil.copy(s, self.args.dst)
+                os.unlink(s)
 
 def main():
     args = parse_args()
